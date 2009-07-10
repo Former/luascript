@@ -1,3 +1,5 @@
+// Copyright (c) 2009 by Alexander Demin
+
 #include "luascript/luascript.h"
 
 #include <algorithm>
@@ -8,7 +10,7 @@ lua::lua() {
 }
 
 lua::~lua() {
-  lua_close(L_); 
+  lua_close(L_);
 }
 
 void lua::bool_arg_t::unpack(lua_State* L) {
@@ -70,9 +72,9 @@ lua::args_t::~args_t() {
   std::for_each(begin(), end(), deleter());
 }
 
-lua::args_t& lua::args_t::add(arg_t* arg) { 
-  push_back(arg); 
-  return *this; 
+lua::args_t& lua::args_t::add(arg_t* arg) {
+  push_back(arg);
+  return *this;
 }
 
 void lua::args_t::unpack(lua_State* L) {
@@ -94,10 +96,10 @@ lua::args_t* lua::args_t::clone() const {
 
 lua::exception::exception(const std::string& msg) : msg_(msg), error_(msg) {
   size_t i = msg.find("]:");
-  if (i == std::string::npos)
+  if (i == std::string::npos) {
     line_ = 0;
-  else {
-    std::sscanf(msg.c_str() + i + 2, "%d", &line_);
+  } else {
+    std::sscanf(msg.c_str() + i + 2, "%d", &line_);  // NOLINT
     i = msg.rfind(": ");
     if (i != std::string::npos)
       error_ = msg.substr(i + 2);

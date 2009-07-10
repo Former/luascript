@@ -1,3 +1,5 @@
+// Copyright (c) 2009 by Alexander Demin
+
 #ifndef _LUASCRIPT_H
 #define _LUASCRIPT_H
 
@@ -19,6 +21,7 @@ class lua {
 
   class arg_t {
    public:
+    virtual ~arg_t() {}
     virtual void unpack(lua_State* L) = 0;
     virtual void pack(lua_State* L) = 0;
     virtual std::string asString() = 0;
@@ -30,8 +33,8 @@ class lua {
     typedef bool value_type;
 
     bool_arg_t() : value_(0) {}
-    bool_arg_t(bool value) : value_(value) {}
-    bool_arg_t(lua_State* L) { unpack(L); }
+    explicit bool_arg_t(bool value) : value_(value) {}
+    explicit bool_arg_t(lua_State* L) { unpack(L); }
 
     virtual arg_t* clone() const { return new bool_arg_t(value_); }
     virtual void unpack(lua_State* L);
@@ -48,8 +51,8 @@ class lua {
     typedef int value_type;
 
     int_arg_t() : value_(0) {}
-    int_arg_t(int value) : value_(value) {}
-    int_arg_t(lua_State* L) { unpack(L); }
+    explicit int_arg_t(int value) : value_(value) {}
+    explicit int_arg_t(lua_State* L) { unpack(L); }
 
     virtual arg_t* clone() const { return new int_arg_t(value_); }
     virtual void unpack(lua_State* L);
@@ -68,8 +71,8 @@ class lua {
     typedef std::string value_type;
 
     string_arg_t() : value_() {}
-    string_arg_t(const std::string& value) : value_(value) {}
-    string_arg_t(lua_State* L) { unpack(L); }
+    explicit string_arg_t(const std::string& value) : value_(value) {}
+    explicit string_arg_t(lua_State* L) { unpack(L); }
 
     virtual arg_t* clone() const { return new string_arg_t(value_); }
     virtual void unpack(lua_State* L);
@@ -112,9 +115,10 @@ class lua {
   T get_variable(const std::string& name);
 
   template< class T >
-  void set_variable(const std::string& name, const typename T::value_type& value);
+  void set_variable(const std::string& name,
+                    const typename T::value_type& value);
 
-  template< class T > 
+  template< class T >
   void register_function();
 
   class deleter {
@@ -164,7 +168,7 @@ int lua::lua_callback(lua_State* L) {
   if (static_cast<int>(lua_func_t<T>::in_args()->size()) != argc) {
     std::stringstream fmt;
     fmt << "function '" << lua_func_t<T>::name() << "'"
-        << " requires " << lua_func_t<T>::in_args()->size() 
+        << " requires " << lua_func_t<T>::in_args()->size()
         << " arguments, but " << argc << " given";
     throw lua::exception(fmt.str());
   }
@@ -181,19 +185,16 @@ int lua::lua_callback(lua_State* L) {
 template< class T >
 void lua::register_function() {
   if (lua_func_t<T>::ns().length()) {
-    exec(
-      std::string("if ") + lua_func_t<T>::ns() + " == nil then " + 
-        lua_func_t<T>::ns() + " = {}; "
-        "end"
-    );
+    exec(std::string("if ") + lua_func_t<T>::ns() + " == nil then " +
+         lua_func_t<T>::ns() + " = {}; "
+         "end");
     lua_register(L_, "dummy", lua_callback< lua_func_t<T> >);
-    exec(
-      lua_func_t<T>::ns() + "." + lua_func_t<T>::name().c_str() + " = dummy; "
-      "dummy = nil"
-    );
-  } else
-    lua_register(L_, lua_func_t<T>::name().c_str(), 
+    exec(lua_func_t<T>::ns() + "." +
+         lua_func_t<T>::name().c_str() + " = dummy; dummy = nil");
+  } else {
+    lua_register(L_, lua_func_t<T>::name().c_str(),
                  lua_callback< lua_func_t<T> >);
+  }
 }
 
 template< class T >
@@ -205,7 +206,7 @@ T lua::get_variable(const std::string& name) {
 }
 
 template< class T >
-void lua::set_variable(const std::string& name, 
+void lua::set_variable(const std::string& name,
                        const typename T::value_type& value) {
   T var(value);
   var.pack(L_);

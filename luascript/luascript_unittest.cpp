@@ -1,3 +1,5 @@
+// Copyright (c) 2009 by Alexander Demin
+
 #include "gtest/gtest.h"
 
 #include <fstream>
@@ -9,15 +11,15 @@ TEST(LuaScript, UrlParsingExample) {
   try {
     lua script;
     script.set_variable<lua::string_arg_t>(
-      "url", 
-      "URL:host=live.system,user=test"
-    );
-    std::string filter = 
-      "if url:find('user=test') then url = url:gsub('(host=)[^.]*', '%1test') end";
+      "url",
+      "URL:host=live.system,user=test");
+    std::string filter =
+      "if url:find('user=test') then "
+      "url = url:gsub('(host=)[^.]*', '%1test') end";
     script.exec(filter);
-    EXPECT_EQ(std::string("URL:host=test.system,user=test"), 
+    EXPECT_EQ(std::string("URL:host=test.system,user=test"),
               script.get_variable<lua::string_arg_t>("url").value());
-  } catch (lua::exception& e) {
+  } catch(const lua::exception& e) {
     FAIL() << "error: " << e.error() << ", line " << e.line();
   }
 }
@@ -26,8 +28,9 @@ TEST(LuaScript, SyntaxErrorUnknownFunction) {
   try {
     lua script;
     script.exec("exists = fs.file_exists('test')");
-  } catch (lua::exception& e) {
-    EXPECT_EQ(std::string("attempt to index global 'fs' (a nil value)"), e.error());
+  } catch(const lua::exception& e) {
+    EXPECT_EQ(std::string("attempt to index global 'fs' (a nil value)"),
+              e.error());
     EXPECT_EQ(1, e.line());
   }
 }
@@ -38,20 +41,18 @@ TEST(LuaScript, SetGetVariable) {
 
     script.set_variable<lua::string_arg_t>("a", "test");
     script.exec("b = a;");
-    EXPECT_EQ(std::string("test"), script.get_variable<lua::string_arg_t>("b").value());
-	  
+    EXPECT_EQ(std::string("test"),
+              script.get_variable<lua::string_arg_t>("b").value());
     script.set_variable<lua::int_arg_t>("a", 100);
     script.exec("b = a;");
     EXPECT_EQ(100, script.get_variable<lua::int_arg_t>("b").value());
-	  
     script.set_variable<lua::bool_arg_t>("a", true);
     script.exec("b = a;");
     EXPECT_EQ(true, script.get_variable<lua::bool_arg_t>("b").value());
-	  
     script.set_variable<lua::bool_arg_t>("a", false);
     script.exec("b = a;");
     EXPECT_EQ(false, script.get_variable<lua::bool_arg_t>("b").value());
-  } catch (lua::exception& e) {
+  } catch(const lua::exception& e) {
     FAIL() << "error: " << e.error() << ", line " << e.line();
   }
 }
@@ -61,14 +62,15 @@ TEST(LuaScript, RequirePackageBase64) {
     lua script;
     script.exec("package.path = package.path .. ';./lib/?.lua'");
     script.exec("require('base64'); a = base64.encode('test');");
-    EXPECT_EQ(std::string("dGVzdA=="), script.get_variable<lua::string_arg_t>("a").value());
-  } catch (lua::exception& e) {
+    EXPECT_EQ(std::string("dGVzdA=="),
+              script.get_variable<lua::string_arg_t>("a").value());
+  } catch(const lua::exception& e) {
     FAIL() << "error: " << e.error() << ", line " << e.line();
   }
 }
 
 class file_exists_func_t {
-public:
+ public:
   static const lua::args_t* in_args() {
     lua::args_t* args = new lua::args_t();
     args->add(new lua::string_arg_t());
@@ -101,17 +103,17 @@ TEST(LuaScript, FileExistsFunction) {
     script.exec("exists = fs.file_exists(fname);");
     EXPECT_EQ(true, script.get_variable<lua::bool_arg_t>("exists").value());
 
-    script.set_variable<lua::string_arg_t>("fname", 
+    script.set_variable<lua::string_arg_t>("fname",
                               std::string("its_nonexisting_h"));
     script.exec("exists = fs.file_exists(fname);");
     EXPECT_EQ(false, script.get_variable<lua::bool_arg_t>("exists").value());
-  } catch (lua::exception& e) {
+  } catch(const lua::exception& e) {
     FAIL() << "error: " << e.error() << ", line " << e.line();
   }
 }
 
 class return_list_func_t {
-public:
+ public:
   static const lua::args_t* in_args() {
     lua::args_t* args = new lua::args_t();
     return args;
@@ -143,7 +145,7 @@ TEST(LuaScript, ReturnListFunction) {
     EXPECT_EQ(true, script.get_variable<lua::bool_arg_t>("b").value());
     EXPECT_EQ(100, script.get_variable<lua::int_arg_t>("i").value());
     EXPECT_EQ("test", script.get_variable<lua::string_arg_t>("s").value());
-  } catch (lua::exception& e) {
+  } catch(const lua::exception& e) {
     FAIL() << "error: " << e.error() << ", line " << e.line();
   }
 }
