@@ -22,7 +22,7 @@ class lua {
   class arg_t {
    public:
     virtual ~arg_t() {}
-    virtual void unpack(lua_State* L) = 0;
+    virtual void unpack(lua_State* L, int nparam) = 0;
     virtual void pack(lua_State* L) = 0;
     virtual std::string asString() = 0;
     virtual arg_t* clone() const = 0;
@@ -34,10 +34,9 @@ class lua {
 
     bool_arg_t() : value_(0) {}
     explicit bool_arg_t(bool value) : value_(value) {}
-    explicit bool_arg_t(lua_State* L) { unpack(L); }
 
     virtual arg_t* clone() const { return new bool_arg_t(value_); }
-    virtual void unpack(lua_State* L);
+    virtual void unpack(lua_State* L, int nparam);
     virtual void pack(lua_State* L);
     std::string asString();
     bool& value() { return value_; }
@@ -52,10 +51,9 @@ class lua {
 
     int_arg_t() : value_(0) {}
     explicit int_arg_t(int value) : value_(value) {}
-    explicit int_arg_t(lua_State* L) { unpack(L); }
 
     virtual arg_t* clone() const { return new int_arg_t(value_); }
-    virtual void unpack(lua_State* L);
+    virtual void unpack(lua_State* L, int nparam);
     virtual void pack(lua_State* L);
     std::string asString();
     int& value() { return value_; }
@@ -72,10 +70,9 @@ class lua {
 
     string_arg_t() : value_() {}
     explicit string_arg_t(const std::string& value) : value_(value) {}
-    explicit string_arg_t(lua_State* L) { unpack(L); }
 
     virtual arg_t* clone() const { return new string_arg_t(value_); }
-    virtual void unpack(lua_State* L);
+    virtual void unpack(lua_State* L, int nparam);
     virtual void pack(lua_State* L);
     std::string asString();
     std::string& value() { return value_; }
@@ -201,7 +198,9 @@ template< class T >
 T lua::get_variable(const std::string& name) {
   lua_getglobal(L_, name.c_str());
   T value;
-  value.unpack(L_);
+  int index = lua_gettop(L_);
+  value.unpack(L_, index);
+  lua_pop(L_, index);
   return value;
 }
 

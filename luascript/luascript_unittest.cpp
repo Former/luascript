@@ -149,3 +149,48 @@ TEST(LuaScript, ReturnListFunction) {
     FAIL() << "error: " << e.error() << ", line " << e.line();
   }
 }
+
+class return_equal_func_t {
+public:
+  static const lua::args_t* in_args() {
+    lua::args_t* args = new lua::args_t();
+    args->add(new lua::bool_arg_t());
+    args->add(new lua::int_arg_t());
+    args->add(new lua::string_arg_t());
+    args->add(new lua::bool_arg_t());
+    return args;
+  }
+
+  static const lua::args_t* out_args() {
+    lua::args_t* args = new lua::args_t();
+    args->add(new lua::bool_arg_t());
+    args->add(new lua::int_arg_t());
+    args->add(new lua::string_arg_t());
+    args->add(new lua::bool_arg_t());
+    return args;
+  }
+
+  static const std::string ns() { return "test"; }
+  static const std::string name() { return "return_list"; }
+
+  static void calc(const lua::args_t& in, lua::args_t& out) {
+    dynamic_cast<lua::bool_arg_t&>(*out[0]).value() = dynamic_cast<lua::bool_arg_t&>(*in[0]).value();
+    dynamic_cast<lua::int_arg_t&>(*out[1]).value() = dynamic_cast<lua::int_arg_t&>(*in[1]).value();
+    dynamic_cast<lua::string_arg_t&>(*out[2]).value() = dynamic_cast<lua::string_arg_t&>(*in[2]).value();
+    dynamic_cast<lua::bool_arg_t&>(*out[3]).value() = dynamic_cast<lua::bool_arg_t&>(*in[3]).value();
+  }
+};
+
+TEST(LuaScript, MultiReturnEqualFunction) {
+  try {
+    lua script;
+    script.register_function< return_equal_func_t >();
+    script.exec("b, i, s, b1 = test.return_list(true, 10, \"test\", false);");
+    EXPECT_EQ(true, script.get_variable<lua::bool_arg_t>("b").value());
+    EXPECT_EQ(10, script.get_variable<lua::int_arg_t>("i").value());
+    EXPECT_EQ("test", script.get_variable<lua::string_arg_t>("s").value());
+    EXPECT_EQ(false, script.get_variable<lua::bool_arg_t>("b1").value());
+  } catch(const lua::exception& e) {
+    FAIL() << "error: " << e.error() << ", line " << e.line();
+  }
+}

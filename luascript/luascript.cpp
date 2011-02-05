@@ -13,9 +13,9 @@ lua::~lua() {
   lua_close(L_);
 }
 
-void lua::bool_arg_t::unpack(lua_State* L) {
-  if (lua_isboolean(L, lua_gettop(L)))
-    value_ = lua_toboolean(L, lua_gettop(L));
+void lua::bool_arg_t::unpack(lua_State* L, int nparam) {
+  if (lua_isboolean(L, nparam))
+	  value_ = lua_toboolean(L, nparam) ? true : false;
   else
     throw lua::exception("bool_arg_t::unpack(), value is not boolean");
 }
@@ -30,9 +30,9 @@ std::string lua::bool_arg_t::asString() {
   return fmt.str();
 }
 
-void lua::int_arg_t::unpack(lua_State* L) {
-  if (lua_isnumber(L, lua_gettop(L)))
-    value_ = lua_tointeger(L, lua_gettop(L));
+void lua::int_arg_t::unpack(lua_State* L, int nparam) {
+  if (lua_isnumber(L, nparam))
+    value_ = lua::int_arg_t::value_type(lua_tointeger(L, nparam));
   else
     throw lua::exception("int_arg_t::unpack(), value is not integer");
 }
@@ -47,9 +47,9 @@ std::string lua::int_arg_t::asString() {
   return fmt.str();
 }
 
-void lua::string_arg_t::unpack(lua_State* L) {
-  if (lua_isstring(L, lua_gettop(L)))
-    value_ = lua_tostring(L, lua_gettop(L));
+void lua::string_arg_t::unpack(lua_State* L, int nparam) {
+  if (lua_isstring(L, nparam))
+    value_ = lua_tostring(L, nparam);
   else
     throw lua::exception("string_arg_t::unpack(), value is not string");
 }
@@ -78,8 +78,8 @@ lua::args_t& lua::args_t::add(arg_t* arg) {
 }
 
 void lua::args_t::unpack(lua_State* L) {
-  for (const_iterator i = begin(); i != end(); ++i)
-    (*i)->unpack(L);
+  for (size_t i = 0; i < size(); ++i)
+    this->at(i)->unpack(L, static_cast<int>(i + 1));
 }
 
 void lua::args_t::pack(lua_State* L) {
