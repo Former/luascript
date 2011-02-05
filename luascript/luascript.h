@@ -1,216 +1,355 @@
-// Copyright (c) 2009 by Alexander Demin
+﻿// Copyright (c) 2009-2011 by Alexander Demin and Alexei Bezborodov
 
-#ifndef _LUASCRIPT_H
-#define _LUASCRIPT_H
+#pragma once
 
 #include <string>
 #include <vector>
+#include <deque>
 #include <sstream>
 #include <exception>
+#include <memory>
+#include <windows.h> // only for PtrToInt and IntToPtr
 
-extern "C" {
-  #include "lua/lua.h"
-  #include "lua/lualib.h"
-  #include "lua/lauxlib.h"
+extern "C" 
+{
+	#include "lua/lua.h"
+	#include "lua/lualib.h"
+	#include "lua/lauxlib.h"
 }
 
-class lua {
- public:
-  lua();
-  ~lua();
+#ifdef UNIT_TEST 
+	class LuaStackChecker
+	{
+	public:
+		LuaStackChecker(lua_State* a_LuaState, const char* a_FileName = "", int a_Line = 0);
+		~LuaStackChecker();
 
-  class arg_t {
-   public:
-    virtual ~arg_t() {}
-    virtual void unpack(lua_State* L) = 0;
-    virtual void pack(lua_State* L) = 0;
-    virtual std::string asString() = 0;
-    virtual arg_t* clone() const = 0;
-  };
+	private:
+		void OnFail(const std::string& a_Message);
+		
+		lua_State* 	m_LuaState;
+		int 		m_TopValue;
+		const char* m_FileName;
+		int 		m_Line;
+	};
+#	define CHECK_LUA_STACK(a_LuaState) LuaStackChecker guad(a_LuaState, __FILE__, __LINE__)
+#else 
+#	define CHECK_LUA_STACK(a_LuaState)
+#endif // UNIT_TEST
 
-  class bool_arg_t: public arg_t {
-   public:
-    typedef bool value_type;
+class LuaScript
+{
+public:
+	LuaScript();
+	~LuaScript();
 
-    bool_arg_t() : value_(0) {}
-    explicit bool_arg_t(bool value) : value_(value) {}
-    explicit bool_arg_t(lua_State* L) { unpack(L); }
+	class iLuaArg
+	{
+	public:
+		virtual ~iLuaArg() {}
+		virtual void		Unpack(lua_State* a_LuaState, int a_ParamIndex) = 0;
+		virtual void		Pack(lua_State* a_LuaState) = 0;
+		virtual std::string AsString() = 0;
+		virtual iLuaArg*	Clone() const = 0;
+	};
 
-    virtual arg_t* clone() const { return new bool_arg_t(value_); }
-    virtual void unpack(lua_State* L);
-    virtual void pack(lua_State* L);
-    std::string asString();
-    bool& value() { return value_; }
+	class Bool_LuaArg: public iLuaArg
+	{
+	public:
+		typedef bool LuaValueType;
 
-   private:
-    bool value_;
-  };
+		Bool_LuaArg() : m_Value(false) { }
+		Bool_LuaArg(bool a_Value) : m_Value(a_Value) { }
 
-  class int_arg_t: public arg_t {
-   public:
-    typedef int value_type;
+		virtual iLuaArg*	Clone() const { return new Bool_LuaArg(m_Value); }
+		virtual void		Unpack(lua_State* a_LuaState, int a_ParamIndex);
+		virtual void		Pack(lua_State* a_LuaState);
+		std::string			AsString();
+		const bool&			GetValue() const;
+		void				SetValue(bool a_Value);
 
-    int_arg_t() : value_(0) {}
-    explicit int_arg_t(int value) : value_(value) {}
-    explicit int_arg_t(lua_State* L) { unpack(L); }
+	private:
+		bool m_Value;
+	};
 
-    virtual arg_t* clone() const { return new int_arg_t(value_); }
-    virtual void unpack(lua_State* L);
-    virtual void pack(lua_State* L);
-    std::string asString();
-    int& value() { return value_; }
+	class Int_LuaArg: public iLuaArg
+	{
+	public:
+		typedef int LuaValueType;
 
-   private:
-    value_type value_;
-  };
+		Int_LuaArg() : m_Value(0) { }
+		Int_LuaArg(LuaValueType a_Value) : m_Value(a_Value) { }
 
-  class string_arg_t: public arg_t {
-   private:
-    std::string value_;
-   public:
-    typedef std::string value_type;
+		virtual iLuaArg*	Clone() const { return new Int_LuaArg(m_Value); }
+		virtual void		Unpack(lua_State* a_LuaState, int a_ParamIndex);
+		virtual void		Pack(lua_State* a_LuaState);
+		std::string			AsString();
+		const LuaValueType& GetValue() const;
+		void				SetValue(LuaValueType a_Value);
 
-    string_arg_t() : value_() {}
-    explicit string_arg_t(const std::string& value) : value_(value) {}
-    explicit string_arg_t(lua_State* L) { unpack(L); }
+	private:
+		LuaValueType m_Value;
+	};
 
-    virtual arg_t* clone() const { return new string_arg_t(value_); }
-    virtual void unpack(lua_State* L);
-    virtual void pack(lua_State* L);
-    std::string asString();
-    std::string& value() { return value_; }
-  };
+	class String_LuaArg: public iLuaArg
+	{
+	public:
+		typedef std::string LuaValueType;
 
-  class args_t: public std::vector< arg_t* > {
-   public:
-    args_t() { clear(); }
-    args_t(const args_t& rhs);
-    virtual ~args_t();
+		String_LuaArg() : m_Value() {}
+		String_LuaArg(const LuaValueType& a_Value) : m_Value(a_Value) {}
 
-    args_t* clone() const;
-    void unpack(lua_State* L);
-    void pack(lua_State* L);
-    args_t& add(arg_t* arg);
-  };
+		virtual iLuaArg*	Clone() const { return new String_LuaArg(m_Value); }
+		virtual void		Unpack(lua_State* a_LuaState, int a_ParamIndex);
+		virtual void		Pack(lua_State* a_LuaState);
+		std::string			AsString();
+		const LuaValueType& GetValue() const;
+		void				SetValue(LuaValueType a_Value);
 
-  template< class T >
-  static int lua_callback(lua_State* L);
+	private:
+		LuaValueType m_Value;
+	};
 
-  class exception : public std::exception {
-   public:
-    explicit exception(const std::string& msg);
-    virtual ~exception() throw() {}
-    const char* what() const throw() { return msg_.c_str(); }
-    int line() const throw() { return line_; }
-    const std::string& error() const throw() { return error_; }
-   private:
-    std::string msg_;
-    int line_;
-    std::string error_;
-  };
+	class VectorInt_LuaArg: public iLuaArg
+	{
+	public:
+		typedef std::vector<int> LuaValueType;
 
-  void exec(const std::string& script);
+		VectorInt_LuaArg() : m_Value() {}
+		VectorInt_LuaArg(const LuaValueType& a_Value) : m_Value(a_Value) {}
 
-  template< class T >
-  T get_variable(const std::string& name);
+		virtual iLuaArg*	Clone() const { return new VectorInt_LuaArg(m_Value); }
+		virtual void		Unpack(lua_State* a_LuaState, int a_ParamIndex);
+		virtual void		Pack(lua_State* a_LuaState);
+		std::string			AsString();
+		const LuaValueType& GetValue() const;
+		void				SetValue(LuaValueType a_Value);
 
-  template< class T >
-  void set_variable(const std::string& name,
-                    const typename T::value_type& value);
+	private:
+		LuaValueType m_Value;
+	};
 
-  template< class T >
-  void register_function();
+	class VectorString_LuaArg: public iLuaArg
+	{
+	public:
+		typedef std::vector<std::string> LuaValueType;
 
-  class deleter {
-   public:
-    template <typename T> void operator() (const T* p) const {
-      delete p;
-    }
-  };
+		VectorString_LuaArg() : m_Value() {}
+		VectorString_LuaArg(const LuaValueType& a_Value) : m_Value(a_Value) {}
 
- protected:
-  lua(const lua&);
-  void operator=(const lua&);
+		virtual iLuaArg*	Clone() const { return new VectorString_LuaArg(m_Value); }
+		virtual void		Unpack(lua_State* a_LuaState, int a_ParamIndex);
+		virtual void		Pack(lua_State* a_LuaState);
+		std::string			AsString();
+		const LuaValueType& GetValue() const;
+		void				SetValue(LuaValueType a_Value);
 
- private:
-  lua_State* L_;
+	private:
+		LuaValueType m_Value;
+	};
+
+	class LuaArgArray: public std::deque<iLuaArg*>
+	{
+	public:
+		LuaArgArray() { clear(); }
+		LuaArgArray(const LuaArgArray& rhs);
+		virtual ~LuaArgArray();
+
+		LuaArgArray*	Clone() const;
+		void			PopFromLua(lua_State* a_LuaState);
+		void			PushToLua(lua_State* a_LuaState);
+		LuaArgArray&	Add(iLuaArg* arg);
+	};
+
+	template<class LuaImplFuncType>
+	static int LuaCallback(lua_State* a_LuaState);
+
+	class LuaException : public std::exception 
+	{
+	public:
+		explicit LuaException(const std::string& msg);
+		virtual ~LuaException() throw() { }
+		
+		const char*			What() const throw() { return m_Message.c_str(); }
+		int					Line() const throw() { return m_Line; }
+		const std::string&	Error() const throw() { return m_Error; }
+
+	private:
+		std::string		m_Message;
+		int				m_Line;
+		std::string		m_Error;
+	};
+
+	void		Execute(const std::string& script);
+
+	template<class LuaArgType>
+	LuaArgType	GetVariable(const std::string& a_Name);
+
+	template<class LuaArgType>
+	void		SetVariable(const std::string& a_Name, const typename LuaArgType::LuaValueType& a_Value);
+
+	template<class LuaArgType>
+	void		RegisterFunction();
+
+protected:
+	LuaScript(const LuaScript&);
+	void operator = (const LuaScript&);
+
+private:
+	class LuaDeleter
+	{
+	public:
+		template <typename LuaArgType> void operator() (const LuaArgType* a_Item) const 
+		{
+			delete a_Item;
+		}
+	};
+
+	lua_State* m_LuaState;
 };
 
-template< class impl_t >
-class lua_func_t {
- public:
-  static const lua::args_t* in_args() {
-    static lua::args_t* args = 0;
-    if (!args)
-      args = const_cast<lua::args_t *>(impl_t::in_args());
-    return args;
-  }
+template<class LuaImplFuncType>
+class LuaFunc 
+{
+public:
+	static const LuaScript::LuaArgArray* GetInputArgs() 
+	{
+		static LuaScript::LuaArgArray* args = 0;
+		if( !args )
+		{
+			args = const_cast<LuaScript::LuaArgArray *>(LuaImplFuncType::GetInputArgs());
+			if( !LuaImplFuncType::NameSpace().empty() )
+				args->push_front(new LuaScript::Int_LuaArg());
+		}
+		return args;
+	}
 
-  static const lua::args_t* out_args() {
-    static lua::args_t* args = 0;
-    if (!args)
-      args = const_cast<lua::args_t *>(impl_t::out_args());
-    return args;
-  }
+	static const LuaScript::LuaArgArray* GetOutputArgs()
+	{
+		static LuaScript::LuaArgArray* args = 0;
+		if( !args )
+			args = const_cast<LuaScript::LuaArgArray *>(LuaImplFuncType::GetOutputArgs());
+		return args;
+	}
 
-  static const std::string ns() { return impl_t::ns(); }
-  static const std::string name() { return impl_t::name(); }
+	static const std::string NameSpace()
+	{
+		return LuaImplFuncType::NameSpace();
+	}
+	
+	static const std::string Name()
+	{
+		return LuaImplFuncType::Name();
+	}
 
-  static void calc(const lua::args_t& in, lua::args_t& out) {
-    impl_t::calc(in, out);
-  }
+	static void Calc(const LuaScript::LuaArgArray& in, LuaScript::LuaArgArray& out)
+	{
+		LuaImplFuncType::Calc(in, out);
+	}
 };
 
-template< class T >
-int lua::lua_callback(lua_State* L) {
-  int argc = lua_gettop(L);
+template<class LuaImplFuncType>
+int LuaScript::LuaCallback(lua_State* a_LuaState) 
+{
+	const std::string sNameSpace	= LuaFunc<LuaImplFuncType>::NameSpace();
+	const std::string sName			= LuaFunc<LuaImplFuncType>::Name();
 
-  if (static_cast<int>(lua_func_t<T>::in_args()->size()) != argc) {
-    std::stringstream fmt;
-    fmt << "function '" << lua_func_t<T>::name() << "'"
-        << " requires " << lua_func_t<T>::in_args()->size()
-        << " arguments, but " << argc << " given";
-    throw lua::exception(fmt.str());
-  }
+	int argCount = lua_gettop(a_LuaState);
+	int inputArgCount = static_cast<int>(LuaFunc<LuaImplFuncType>::GetInputArgs()->size());
+	if( inputArgCount != argCount ) 
+	{
+		std::stringstream fmt;
+		fmt << "function '" << sName << "'"
+			<< " requires " << (sNameSpace.empty() ?  inputArgCount : inputArgCount - 1)
+			<< " arguments, but " << (sNameSpace.empty() ? argCount : argCount - 1) << " given";
+		throw LuaScript::LuaException(fmt.str());
+	}
 
-  std::auto_ptr<lua::args_t> in_args(lua_func_t<T>::in_args()->clone());
-  in_args->unpack(L);
+	std::auto_ptr<LuaScript::LuaArgArray> inArgs(LuaFunc<LuaImplFuncType>::GetInputArgs()->Clone());
+	inArgs->PopFromLua(a_LuaState);
+	std::auto_ptr<LuaScript::LuaArgArray> outArgs(LuaFunc<LuaImplFuncType>::GetOutputArgs()->Clone());
 
-  std::auto_ptr<lua::args_t> out_args(lua_func_t<T>::out_args()->clone());
-  lua_func_t<T>::calc(*in_args, *out_args);
-  out_args->pack(L);
-  return out_args->size();
+	LuaScript* parent = 0;
+	if( !sNameSpace.empty() )
+	{
+		LuaScript::Int_LuaArg firstParametr = dynamic_cast<LuaScript::Int_LuaArg&>(*inArgs->at(0));
+		parent = static_cast<LuaScript*>(IntToPtr(firstParametr.GetValue()));
+		inArgs->pop_front();
+	}
+
+	LuaImplFuncType funcClass(parent);
+	{
+		CHECK_LUA_STACK(a_LuaState);
+		funcClass.Calc(*inArgs, *outArgs);
+	}
+	outArgs->PushToLua(a_LuaState);
+	return (int)(outArgs->size());
 }
 
-template< class T >
-void lua::register_function() {
-  if (lua_func_t<T>::ns().length()) {
-    exec(std::string("if ") + lua_func_t<T>::ns() + " == nil then " +
-         lua_func_t<T>::ns() + " = {}; "
-         "end");
-    lua_register(L_, "dummy", lua_callback< lua_func_t<T> >);
-    exec(lua_func_t<T>::ns() + "." +
-         lua_func_t<T>::name().c_str() + " = dummy; dummy = nil");
-  } else {
-    lua_register(L_, lua_func_t<T>::name().c_str(),
-                 lua_callback< lua_func_t<T> >);
-  }
+template<class LuaImplFuncType>
+void LuaScript::RegisterFunction() 
+{
+	CHECK_LUA_STACK(m_LuaState);
+	
+	const std::string sNameSpace	= LuaFunc<LuaImplFuncType>::NameSpace();
+	const std::string sName			= LuaFunc<LuaImplFuncType>::Name();
+	if( sNameSpace.empty() )
+	{
+		lua_register(m_LuaState, sName.c_str(), LuaCallback<LuaImplFuncType>);
+		return;
+	}
+	
+	std::stringstream strThis;
+	strThis << PtrToInt(this);
+
+	std::string script = 
+		std::string("if ") + sNameSpace + " == nil or " + sNameSpace + ".m_This == 0 then " + 
+		sNameSpace + " = { m_This = " + strThis.str() + " }; "
+		"end";
+	Execute(script.c_str());
+	
+	lua_register(m_LuaState, "t_CurFunction", LuaCallback<LuaImplFuncType>);
+
+	script = 
+		sNameSpace + "." + sName + "_CppFunction = t_CurFunction; "
+		"t_CurFunction = nil;";
+	Execute(script.c_str());
+
+	script = 
+		std::string("function ") + sNameSpace + "." + sName + "(...) "
+		"	local curArg = {}; "
+		"	local sArgs = ''; "
+		"	for ind, val in ipairs(arg) "
+		"	do "
+		"		curArg[ind] = val; "
+		"		sArgs = sArgs..', curArg['..ind..']'; "
+		"	end "
+		"	return loadstring( "
+		"				'return function (curArg) return " + sNameSpace + "." + sName + "_CppFunction(" + sNameSpace + ".m_This'..sArgs..' ); end'"
+		"				)()(curArg); "
+		"end ";
+	
+	Execute(script.c_str());
 }
 
-template< class T >
-T lua::get_variable(const std::string& name) {
-  lua_getglobal(L_, name.c_str());
-  T value;
-  value.unpack(L_);
-  return value;
+template<class LuaArgType>
+LuaArgType LuaScript::GetVariable(const std::string& name) 
+{
+	CHECK_LUA_STACK(m_LuaState);
+
+	lua_getglobal(m_LuaState, name.c_str());
+	LuaArgType val;
+	int index = lua_gettop(m_LuaState);
+	val.Unpack(m_LuaState, index);
+	lua_pop(m_LuaState, index);
+	return val;
 }
 
-template< class T >
-void lua::set_variable(const std::string& name,
-                       const typename T::value_type& value) {
-  T var(value);
-  var.pack(L_);
-  lua_setglobal(L_, name.c_str());
+template<class LuaArgType>
+void LuaScript::SetVariable(const std::string& a_Name, const typename LuaArgType::LuaValueType& a_Value) 
+{
+	LuaArgType var(a_Value);
+	var.Pack(m_LuaState);
+	lua_setglobal(m_LuaState, a_Name.c_str());
 }
 
-#endif
