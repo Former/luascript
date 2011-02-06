@@ -15,7 +15,7 @@ lua::~lua() {
 
 void lua::bool_arg_t::unpack(lua_State* L, int nparam) {
   if (lua_isboolean(L, nparam))
-	  value_ = lua_toboolean(L, nparam) ? true : false;
+    value_ = lua_toboolean(L, nparam) ? true : false;
   else
     throw lua::exception("bool_arg_t::unpack(), value is not boolean");
 }

@@ -174,10 +174,14 @@ public:
   static const std::string name() { return "return_list"; }
 
   static void calc(const lua::args_t& in, lua::args_t& out) {
-    dynamic_cast<lua::bool_arg_t&>(*out[0]).value() = dynamic_cast<lua::bool_arg_t&>(*in[0]).value();
-    dynamic_cast<lua::int_arg_t&>(*out[1]).value() = dynamic_cast<lua::int_arg_t&>(*in[1]).value();
-    dynamic_cast<lua::string_arg_t&>(*out[2]).value() = dynamic_cast<lua::string_arg_t&>(*in[2]).value();
-    dynamic_cast<lua::bool_arg_t&>(*out[3]).value() = dynamic_cast<lua::bool_arg_t&>(*in[3]).value();
+    dynamic_cast<lua::bool_arg_t&>(*out[0]).value() = 
+                  dynamic_cast<lua::bool_arg_t&>(*in[0]).value();
+    dynamic_cast<lua::int_arg_t&>(*out[1]).value() = 
+                  dynamic_cast<lua::int_arg_t&>(*in[1]).value();
+    dynamic_cast<lua::string_arg_t&>(*out[2]).value() = 
+                  dynamic_cast<lua::string_arg_t&>(*in[2]).value();
+    dynamic_cast<lua::bool_arg_t&>(*out[3]).value() = 
+                  dynamic_cast<lua::bool_arg_t&>(*in[3]).value();
   }
 };
 
